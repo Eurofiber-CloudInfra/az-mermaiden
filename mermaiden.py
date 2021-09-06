@@ -237,24 +237,27 @@ def aggregate_subscription(sub_id: str, runtime: runtime_data):
   with use_azure_account(sub_id) as active_sub:
     cmd_base = "az network vnet list".split()
     cmd_output = json.loads(subprocess.check_output(cmd_base, shell=False))
-    for raw_vnet in cmd_output:
-      azvnet = get_az_vnet(raw_vnet)
-      if azvnet.hash not in runtime.vnet_map:
-        runtime.vnet_map[azvnet.hash] = azvnet
 
-      for peer in get_az_vnet_peers(raw_vnet):
-        runtime.vnet_map[azvnet.hash].peers.append(peer)
+  for raw_vnet in cmd_output:
+    azvnet = get_az_vnet(raw_vnet)
+    if azvnet.hash not in runtime.vnet_map:
+      runtime.vnet_map[azvnet.hash] = azvnet
 
-        if peer.peeredVnet.hash not in runtime.vnet_map:
-          runtime.vnet_map[peer.peeredVnet.hash] = peer.peeredVnet
-        # store peer also peered vnet object
-        runtime.vnet_map[peer.peeredVnet.hash].peers.append(peer)
+    for peer in get_az_vnet_peers(raw_vnet):
+      if peer.hash not in runtime.vnet_map[azvnet.hash].peers:
+        runtime.vnet_map[azvnet.hash].peers.append(peer.hash)
 
-        if peer.hash not in runtime.peer_map:
-          runtime.peer_map[peer.hash] = peer
+      if peer.peeredVnet.hash not in runtime.vnet_map:
+        runtime.vnet_map[peer.peeredVnet.hash] = peer.peeredVnet
 
-      sub_vnet_refs.append(azvnet.hash)
-    data_map.update(subscription=active_sub, vnet_refs=set(sub_vnet_refs))
+      if peer.hash not in runtime.vnet_map[peer.peeredVnet.hash].peers:
+        runtime.vnet_map[peer.peeredVnet.hash].peers.append(peer.hash)
+
+      if peer.hash not in runtime.peer_map:
+        runtime.peer_map[peer.hash] = peer
+
+    sub_vnet_refs.append(azvnet.hash)
+  data_map.update(subscription=active_sub, vnet_refs=set(sub_vnet_refs))
   runtime.subscription_data.append(data_map)
 
 
